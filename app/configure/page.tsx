@@ -1,0 +1,50 @@
+"use client";
+
+import Link from "next/link";
+import AlarmForm from "@/app/components/AlarmForm";
+import AlarmList from "@/app/components/AlarmList";
+import { useEffect } from "react";
+import { useAlarmStore } from "@/lib/store";
+
+export default function ConfigurePage() {
+  const loadAlarms = useAlarmStore((state) => state.loadAlarms);
+
+  useEffect(() => {
+    loadAlarms();
+  }, [loadAlarms]);
+
+  return (
+    <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-black">
+      {/* Header */}
+      <header className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+        <div className="max-w-4xl mx-auto px-4 py-4 sm:px-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">⏰ Configure Alarms</h1>
+            <Link
+              href="/"
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+            >
+              Back
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-12 sm:px-6">
+        <div className="grid gap-12 grid-cols-1 lg:grid-cols-2">
+          {/* Form Section */}
+          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+            <h2 className="text-lg font-semibold mb-6 text-gray-900 dark:text-white">Create New Alarm</h2>
+            <AlarmForm />
+          </div>
+
+          {/* List Section */}
+          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+            <AlarmList />
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
