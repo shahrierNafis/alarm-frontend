@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useAlarmStore } from "@/lib/store";
 import { Alarm } from "@/lib/types";
 
-export default function AlarmList() {
+interface AlarmListProps {
+  onEditAlarm?: (alarm: Alarm) => void;
+}
+
+export default function AlarmList({ onEditAlarm }: AlarmListProps) {
   const [alarms, setAlarms] = useState<Alarm[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { alarms: storeAlarms, loadAlarms, deleteAlarm } = useAlarmStore();
@@ -68,6 +72,12 @@ export default function AlarmList() {
               >
                 Open
               </Link>
+              <button
+                onClick={() => onEditAlarm?.(alarm)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Edit
+              </button>
               <button
                 onClick={() => handleDelete(alarm.id)}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"

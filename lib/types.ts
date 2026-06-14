@@ -6,6 +6,9 @@ export interface Alarm {
   soundData?: Blob; // audio file blob
   snoozeOptions: number[]; // snooze durations in minutes (e.g., [5, 10, 15])
   createdAt: number; // timestamp
+  volumeRampEnabled?: boolean; // whether to gradually increase volume
+  startingVolume?: number; // starting volume as percentage (0-100)
+  volumeRampDuration?: number; // duration of volume ramp in seconds
 }
 
 export interface AlarmState {

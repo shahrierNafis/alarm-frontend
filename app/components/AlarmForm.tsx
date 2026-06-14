@@ -1,21 +1,42 @@
 "use client";
 
-import { useState, ChangeEvent, FormEvent } from "react";
+import { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import { useAlarmStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
+import { Alarm } from "@/lib/types";
 
 interface AlarmFormProps {
   onSuccess?: () => void;
+  alarm?: Alarm;
+  onEditCancel?: () => void;
 }
 
-export default function AlarmForm({ onSuccess }: AlarmFormProps) {
+export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormProps) {
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [snoozeOptions, setSnoozeOptions] = useState<number[]>([]);
+  const [volumeRampEnabled, setVolumeRampEnabled] = useState(false);
+  const [startingVolume, setStartingVolume] = useState(20);
+  const [volumeRampDuration, setVolumeRampDuration] = useState(30);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
   const addAlarm = useAlarmStore((state) => state.addAlarm);
+  const updateAlarm = useAlarmStore((state) => state.updateAlarm);
+
+  const isEditMode = !!alarm;
+
+  // Populate form when editing
+  useEffect(() => {
+    if (alarm) {
+      setName(alarm.name);
+      setSnoozeOptions(alarm.snoozeOptions);
+      setVolumeRampEnabled(alarm.volumeRampEnabled ?? false);
+      setStartingVolume(alarm.startingVolume ?? 20);
+      setVolumeRampDuration(alarm.volumeRampDuration ?? 30);
+      setFile(null); // File handling is separate for editing
+    }
+  }, [alarm]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -55,28 +76,47 @@ export default function AlarmForm({ onSuccess }: AlarmFormProps) {
         return;
       }
 
-      // Create alarm with optional sound
+      // Prepare sound data
       const soundData = file ? new Blob([file], { type: file.type }) : undefined;
 
-      await addAlarm({
-        name: name.trim(),
-        soundData,
-        snoozeOptions,
-      });
+      if (isEditMode && alarm) {
+        // Update existing alarm
+        await updateAlarm(alarm.id, {
+          name: name.trim(),
+          soundData: soundData || alarm.soundData, // Keep existing sound if not updating
+          snoozeOptions,
+          volumeRampEnabled,
+          startingVolume: volumeRampEnabled ? startingVolume : undefined,
+          volumeRampDuration: volumeRampEnabled ? volumeRampDuration : undefined,
+        });
+      } else {
+        // Create new alarm
+        await addAlarm({
+          name: name.trim(),
+          soundData,
+          snoozeOptions,
+          volumeRampEnabled,
+          startingVolume: volumeRampEnabled ? startingVolume : undefined,
+          volumeRampDuration: volumeRampEnabled ? volumeRampDuration : undefined,
+        });
 
-      // Reset form
-      setName("");
-      setFile(null);
-      setSnoozeOptions([]);
+        // Reset form only when creating
+        setName("");
+        setFile(null);
+        setSnoozeOptions([]);
+        setVolumeRampEnabled(false);
+        setStartingVolume(20);
+        setVolumeRampDuration(30);
 
-      // Navigate to the alarm page
-      router.push(`/alarm/${encodeURIComponent(name.trim())}`);
+        // Navigate to the alarm page only when creating
+        router.push(`/alarm/${encodeURIComponent(name.trim())}`);
+      }
 
       if (onSuccess) {
         onSuccess();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create alarm");
+      setError(err instanceof Error ? err.message : (isEditMode ? "Failed to update alarm" : "Failed to create alarm"));
     } finally {
       setIsLoading(false);
     }
@@ -149,17 +189,96 @@ export default function AlarmForm({ onSuccess }: AlarmFormProps) {
         </div>
       </div>
 
+      {/* Volume Ramp Settings */}
+      <div className="border-t border-gray-300 dark:border-gray-600 pt-6">
+        <div className="flex items-center gap-3 mb-4">
+          <input
+            type="checkbox"
+            id="volumeRamp"
+            checked={volumeRampEnabled}
+            onChange={(e) => setVolumeRampEnabled(e.target.checked)}
+            disabled={isLoading}
+            className="w-4 h-4 rounded cursor-pointer"
+          />
+          <label htmlFor="volumeRamp" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+            Enable Gradually Increasing Volume
+          </label>
+        </div>
+
+        {volumeRampEnabled && (
+          <div className="space-y-4 ml-7 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+            {/* Starting Volume */}
+            <div>
+              <label
+                htmlFor="startingVolume"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
+                Starting Volume: {startingVolume}%
+              </label>
+              <input
+                type="range"
+                id="startingVolume"
+                min="0"
+                max="100"
+                value={startingVolume}
+                onChange={(e) => setStartingVolume(Number(e.target.value))}
+                disabled={isLoading}
+                className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600"
+              />
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Volume will gradually increase from {startingVolume}% to 100%
+              </p>
+            </div>
+
+            {/* Ramp Duration */}
+            <div>
+              <label
+                htmlFor="volumeRampDuration"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
+                Ramp Duration: {volumeRampDuration} seconds
+              </label>
+              <input
+                type="range"
+                id="volumeRampDuration"
+                min="5"
+                max="120"
+                value={volumeRampDuration}
+                onChange={(e) => setVolumeRampDuration(Number(e.target.value))}
+                disabled={isLoading}
+                className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600"
+              />
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Volume will reach 100% after {volumeRampDuration} seconds
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Error Message */}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="w-full rounded-lg bg-black px-4 py-3 font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-black dark:hover:bg-gray-200"
-      >
-        {isLoading ? "Creating..." : "Create Alarm"}
-      </button>
+      {/* Submit Buttons */}
+      <div className="flex gap-3">
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="flex-1 rounded-lg bg-black px-4 py-3 font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-black dark:hover:bg-gray-200"
+        >
+          {isLoading ? (isEditMode ? "Updating..." : "Creating...") : isEditMode ? "Update Alarm" : "Create Alarm"}
+        </button>
+        {isEditMode && onEditCancel && (
+          <button
+            type="button"
+            onClick={onEditCancel}
+            disabled={isLoading}
+            className="flex-1 rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   );
 }

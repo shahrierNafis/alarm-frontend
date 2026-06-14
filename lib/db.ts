@@ -10,6 +10,9 @@ interface StoredAlarm {
   soundData?: Blob;
   snoozeOptions: number[];
   createdAt: number;
+  volumeRampEnabled?: boolean;
+  startingVolume?: number;
+  volumeRampDuration?: number;
 }
 
 let db: IDBDatabase | null = null;

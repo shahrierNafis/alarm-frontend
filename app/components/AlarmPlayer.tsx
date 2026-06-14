@@ -14,6 +14,7 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
   const [snoozeActive, setSnoozeActive] = useState(false);
   const [snoozeRemaining, setSnoozeRemaining] = useState(0);
   const [selectedSnoozeDuration, setSelectedSnoozeDuration] = useState(alarm.snoozeOptions[0] || 5);
+  const [volumeRampActive, setVolumeRampActive] = useState(false);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const snoozeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -28,10 +29,19 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
           audioBufferRef.current = audioPlayer.generateDefaultAlarmBeep();
         }
 
-        // Start playback
+        // Start playback with optional volume ramp
         if (audioBufferRef.current) {
-          audioPlayer.playAudio(audioBufferRef.current);
+          const startingVolume = alarm.volumeRampEnabled ? alarm.startingVolume || 100 : 100;
+          audioPlayer.playAudio(audioBufferRef.current, startingVolume);
           setIsPlaying(true);
+
+          // Start volume ramp if enabled
+          if (alarm.volumeRampEnabled && alarm.volumeRampDuration) {
+            setVolumeRampActive(true);
+            audioPlayer.startVolumeRamp(alarm.startingVolume || 100, alarm.volumeRampDuration, undefined, () => {
+              setVolumeRampActive(false);
+            });
+          }
         }
       } catch (error) {
         console.error("Failed to initialize audio:", error);
@@ -85,6 +95,13 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
               .toString()
               .padStart(2, "0")}
           </div>
+        </div>
+      )}
+
+      {/* Volume Ramp Indicator */}
+      {volumeRampActive && !snoozeActive && (
+        <div className="text-center animate-pulse">
+          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">🔊 Volume Gradually Increasing</p>
         </div>
       )}
 

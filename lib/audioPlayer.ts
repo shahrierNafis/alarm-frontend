@@ -14,6 +14,17 @@ let snoozeTimeout: NodeJS.Timeout | null = null;
 let snoozeCountdownInterval: NodeJS.Timeout | null = null;
 let currentSnoozeEndTime: number = 0;
 
+// Volume ramp tracking
+let volumeRampAnimationId: number | null = null;
+let volumeRampState: {
+  startVolume: number;
+  targetVolume: number;
+  startTime: number;
+  durationMs: number;
+  isPaused: boolean;
+  pausedAtTime: number;
+} | null = null;
+
 // Initialize audio context
 function getAudioContext(): AudioContext {
   if (playerContext?.audioContext) {
@@ -48,7 +59,7 @@ export function generateDefaultAlarmBeep(durationSeconds: number = 2): AudioBuff
 }
 
 // Play audio
-export function playAudio(audioBuffer: AudioBuffer): void {
+export function playAudio(audioBuffer: AudioBuffer, startingVolumePercent: number = 100): void {
   const audioContext = getAudioContext();
 
   // Stop any currently playing audio
@@ -67,7 +78,8 @@ export function playAudio(audioBuffer: AudioBuffer): void {
 
   // Create gain node for volume control
   const gainNode = audioContext.createGain();
-  gainNode.gain.value = 1; // 100% volume
+  const initialVolume = Math.max(0, Math.min(100, startingVolumePercent)) / 100;
+  gainNode.gain.value = initialVolume; // Set to starting volume
 
   // Connect nodes: source -> gain -> destination (speakers)
   source.connect(gainNode);
@@ -107,6 +119,9 @@ export function stopAudio(): void {
     clearInterval(snoozeCountdownInterval);
     snoozeCountdownInterval = null;
   }
+
+  // Stop volume ramp
+  stopVolumeRamp();
 }
 
 // Pause audio (for snooze)
@@ -140,6 +155,7 @@ export function startSnooze(
   onSnoozeEnd?: () => void,
 ): void {
   pauseAudio();
+  pauseVolumeRamp(); // Pause volume ramp during snooze
 
   const durationMs = durationMinutes * 60 * 1000;
   currentSnoozeEndTime = Date.now() + durationMs;
@@ -157,6 +173,7 @@ export function startSnooze(
       clearInterval(snoozeCountdownInterval!);
       snoozeCountdownInterval = null;
       resumeAudio();
+      resumeVolumeRamp(); // Resume volume ramp after snooze ends
       if (onSnoozeEnd) {
         onSnoozeEnd();
       }
@@ -185,4 +202,121 @@ export function setVolume(volume: number): void {
   if (playerContext?.gainNode) {
     playerContext.gainNode.gain.value = Math.max(0, Math.min(1, volume));
   }
+}
+
+// Start volume ramp: gradually increase from starting volume to 100% over duration
+export function startVolumeRamp(
+  startingVolumePercent: number,
+  durationSeconds: number,
+  onRampProgress?: (currentVolume: number) => void,
+  onRampComplete?: () => void,
+): void {
+  if (!playerContext?.gainNode) {
+    console.error("Cannot start volume ramp: no audio context");
+    return;
+  }
+
+  // Stop any existing ramp
+  stopVolumeRamp();
+
+  const startVolume = Math.max(0, Math.min(100, startingVolumePercent)) / 100;
+  const targetVolume = 1.0; // 100%
+  const durationMs = durationSeconds * 1000;
+
+  volumeRampState = {
+    startVolume,
+    targetVolume,
+    startTime: Date.now(),
+    durationMs,
+    isPaused: false,
+    pausedAtTime: 0,
+  };
+
+  const animateRamp = () => {
+    if (!volumeRampState || !playerContext?.gainNode) {
+      return;
+    }
+
+    const now = Date.now();
+    const elapsedMs = now - volumeRampState.startTime;
+    const progress = Math.min(1, elapsedMs / volumeRampState.durationMs);
+    const currentVolume =
+      volumeRampState.startVolume + (volumeRampState.targetVolume - volumeRampState.startVolume) * progress;
+
+    playerContext.gainNode.gain.value = currentVolume;
+
+    if (onRampProgress) {
+      onRampProgress(currentVolume);
+    }
+
+    if (progress >= 1) {
+      // Ramp complete
+      volumeRampState = null;
+      volumeRampAnimationId = null;
+      if (onRampComplete) {
+        onRampComplete();
+      }
+    } else {
+      // Continue ramp
+      volumeRampAnimationId = requestAnimationFrame(animateRamp);
+    }
+  };
+
+  volumeRampAnimationId = requestAnimationFrame(animateRamp);
+}
+
+// Pause volume ramp (used during snooze)
+export function pauseVolumeRamp(): void {
+  if (volumeRampState && !volumeRampState.isPaused) {
+    volumeRampState.isPaused = true;
+    volumeRampState.pausedAtTime = Date.now();
+
+    if (volumeRampAnimationId !== null) {
+      cancelAnimationFrame(volumeRampAnimationId);
+      volumeRampAnimationId = null;
+    }
+  }
+}
+
+// Resume volume ramp (after snooze ends)
+export function resumeVolumeRamp(): void {
+  if (volumeRampState && volumeRampState.isPaused) {
+    const pausedDuration = Date.now() - volumeRampState.pausedAtTime;
+    volumeRampState.startTime += pausedDuration;
+    volumeRampState.isPaused = false;
+
+    const animateRamp = () => {
+      if (!volumeRampState || !playerContext?.gainNode) {
+        return;
+      }
+
+      const now = Date.now();
+      const elapsedMs = now - volumeRampState.startTime;
+      const progress = Math.min(1, elapsedMs / volumeRampState.durationMs);
+      const currentVolume =
+        volumeRampState.startVolume + (volumeRampState.targetVolume - volumeRampState.startVolume) * progress;
+
+      playerContext.gainNode.gain.value = currentVolume;
+
+      if (progress >= 1) {
+        // Ramp complete
+        volumeRampState = null;
+        volumeRampAnimationId = null;
+      } else {
+        // Continue ramp
+        volumeRampAnimationId = requestAnimationFrame(animateRamp);
+      }
+    };
+
+    volumeRampAnimationId = requestAnimationFrame(animateRamp);
+  }
+}
+
+// Stop volume ramp
+export function stopVolumeRamp(): void {
+  if (volumeRampAnimationId !== null) {
+    cancelAnimationFrame(volumeRampAnimationId);
+    volumeRampAnimationId = null;
+  }
+  volumeRampState = null;
 }
