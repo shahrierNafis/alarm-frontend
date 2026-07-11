@@ -4,7 +4,8 @@ export interface Alarm {
   id: string; // unique identifier
   name: string; // alarm name (used in URL)
   soundData?: Blob; // audio file blob
-  snoozeOptions: number[]; // snooze durations in minutes (e.g., [5, 10, 15])
+  snoozeDuration: number; // custom snooze duration in minutes
+  snoozeLimit: number | null; // maximum times snooze can be triggered (null for unlimited)
   createdAt: number; // timestamp
   volumeRampEnabled?: boolean; // whether to gradually increase volume
   startingVolume?: number; // starting volume as percentage (0-100)

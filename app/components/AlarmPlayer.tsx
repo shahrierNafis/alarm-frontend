@@ -13,7 +13,7 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [snoozeActive, setSnoozeActive] = useState(false);
   const [snoozeRemaining, setSnoozeRemaining] = useState(0);
-  const [selectedSnoozeDuration, setSelectedSnoozeDuration] = useState(alarm.snoozeOptions[0] || 5);
+  const [snoozeCount, setSnoozeCount] = useState(0);
   const [volumeRampActive, setVolumeRampActive] = useState(false);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const snoozeIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -67,8 +67,13 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
     window.location.href = "/";
   }, []);
 
+  const snoozeDuration = alarm.snoozeDuration ?? 5;
+  const isSnoozeLimitReached = alarm.snoozeLimit !== null && alarm.snoozeLimit !== undefined && snoozeCount >= alarm.snoozeLimit;
+
   const handleSnooze = useCallback(() => {
-    audioPlayer.startSnooze(selectedSnoozeDuration, (remaining) => {
+    if (isSnoozeLimitReached) return;
+
+    audioPlayer.startSnooze(snoozeDuration, (remaining) => {
       setSnoozeRemaining(remaining);
       if (remaining <= 0) {
         setSnoozeActive(false);
@@ -77,8 +82,9 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
 
     setSnoozeActive(true);
     setIsPaused(true);
-    setSnoozeRemaining(selectedSnoozeDuration * 60 * 1000);
-  }, [selectedSnoozeDuration]);
+    setSnoozeRemaining(snoozeDuration * 60 * 1000);
+    setSnoozeCount((prev) => prev + 1);
+  }, [snoozeDuration, isSnoozeLimitReached]);
 
   return (
     <div className="w-full flex flex-col items-center justify-center gap-8">
@@ -105,24 +111,23 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
         </div>
       )}
 
-      {/* Snooze Duration Selector (shown when not snoozed) */}
-      {!snoozeActive && isPlaying && (
-        <div className="text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Snooze duration:</p>
-          <div className="flex gap-2 justify-center flex-wrap">
-            {alarm.snoozeOptions.map((duration) => (
-              <button
-                key={duration}
-                onClick={() => setSelectedSnoozeDuration(duration)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  selectedSnoozeDuration === duration
-                    ? "bg-black text-white dark:bg-white dark:text-black"
-                    : "bg-gray-300 text-gray-800 hover:bg-gray-400 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                {duration}m
-              </button>
-            ))}
+      {/* Snooze Config & Status Info */}
+      {isPlaying && (
+        <div className="text-center bg-gray-50 dark:bg-zinc-900 px-6 py-4 rounded-xl shadow-inner border border-gray-150 dark:border-zinc-800 w-full max-w-sm">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Snooze duration: <span className="font-semibold text-black dark:text-white">{snoozeDuration} min</span>
+          </p>
+          <div className="text-sm mt-1 text-gray-500 dark:text-gray-400">
+            {alarm.snoozeLimit === null || alarm.snoozeLimit === undefined ? (
+              <p>Snoozed: <span className="font-semibold text-black dark:text-white">{snoozeCount}</span> times (Unlimited)</p>
+            ) : (
+              <div>
+                <p>Snoozed: <span className="font-semibold text-black dark:text-white">{snoozeCount}</span> of <span className="font-semibold text-black dark:text-white">{alarm.snoozeLimit}</span> times</p>
+                {isSnoozeLimitReached && (
+                  <span className="block text-red-500 font-bold mt-1 text-xs animate-bounce">⚠️ Snooze limit reached!</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -131,7 +136,7 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
       <div className="flex gap-4 flex-wrap justify-center">
         <button
           onClick={handleSnooze}
-          disabled={!isPlaying || snoozeActive}
+          disabled={!isPlaying || snoozeActive || isSnoozeLimitReached}
           className="px-8 py-4 rounded-lg bg-yellow-500 text-white font-semibold text-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           💤 Snooze

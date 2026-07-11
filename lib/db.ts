@@ -8,11 +8,26 @@ interface StoredAlarm {
   id: string;
   name: string;
   soundData?: Blob;
-  snoozeOptions: number[];
+  snoozeDuration: number;
+  snoozeLimit: number | null;
   createdAt: number;
   volumeRampEnabled?: boolean;
   startingVolume?: number;
   volumeRampDuration?: number;
+}
+
+// Helper to migrate legacy alarms containing snoozeOptions
+function migrateAlarm(alarm: any): StoredAlarm {
+  if (!alarm) return alarm;
+  if (typeof alarm.snoozeDuration !== "number") {
+    const defaultDuration = (alarm.snoozeOptions && alarm.snoozeOptions[0]) || 5;
+    return {
+      ...alarm,
+      snoozeDuration: defaultDuration,
+      snoozeLimit: alarm.snoozeLimit !== undefined ? alarm.snoozeLimit : null,
+    };
+  }
+  return alarm;
 }
 
 let db: IDBDatabase | null = null;
@@ -64,7 +79,7 @@ export async function getAlarm(id: string): Promise<StoredAlarm | undefined> {
     const request = store.get(id);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(migrateAlarm(request.result));
   });
 }
 
@@ -78,8 +93,9 @@ export async function getAlarmByName(name: string): Promise<StoredAlarm | undefi
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
-      const results = request.result as StoredAlarm[];
-      resolve(results.find((alarm) => alarm.name === name));
+      const results = request.result as any[];
+      const found = results.find((alarm) => alarm.name === name);
+      resolve(found ? migrateAlarm(found) : undefined);
     };
   });
 }
@@ -93,7 +109,10 @@ export async function getAllAlarms(): Promise<StoredAlarm[]> {
     const request = store.getAll();
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result || []);
+    request.onsuccess = () => {
+      const results = request.result || [];
+      resolve(results.map(migrateAlarm));
+    };
   });
 }
 
