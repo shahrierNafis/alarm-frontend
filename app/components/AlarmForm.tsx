@@ -17,6 +17,7 @@ export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormP
   const [snoozeDuration, setSnoozeDuration] = useState<number>(5);
   const [snoozeLimitType, setSnoozeLimitType] = useState<"unlimited" | "custom">("unlimited");
   const [snoozeLimitValue, setSnoozeLimitValue] = useState<number>(3);
+  const [autoDismissDuration, setAutoDismissDuration] = useState<number>(10);
   const [volumeRampEnabled, setVolumeRampEnabled] = useState(false);
   const [startingVolume, setStartingVolume] = useState(20);
   const [volumeRampDuration, setVolumeRampDuration] = useState(30);
@@ -40,6 +41,7 @@ export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormP
         setSnoozeLimitType("custom");
         setSnoozeLimitValue(alarm.snoozeLimit);
       }
+      setAutoDismissDuration(alarm.autoDismissDuration ?? 10);
       setVolumeRampEnabled(alarm.volumeRampEnabled ?? false);
       setStartingVolume(alarm.startingVolume ?? 20);
       setVolumeRampDuration(alarm.volumeRampDuration ?? 30);
@@ -81,6 +83,12 @@ export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormP
         return;
       }
 
+      if (autoDismissDuration <= 0) {
+        setError("Auto-dismiss duration must be at least 1 minute");
+        setIsLoading(false);
+        return;
+      }
+
       if (snoozeLimitType === "custom" && snoozeLimitValue <= 0) {
         setError("Snooze limit must be at least 1");
         setIsLoading(false);
@@ -98,6 +106,7 @@ export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormP
           soundData: soundData || alarm.soundData, // Keep existing sound if not updating
           snoozeDuration,
           snoozeLimit,
+          autoDismissDuration,
           volumeRampEnabled,
           startingVolume: volumeRampEnabled ? startingVolume : undefined,
           volumeRampDuration: volumeRampEnabled ? volumeRampDuration : undefined,
@@ -109,6 +118,7 @@ export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormP
           soundData,
           snoozeDuration,
           snoozeLimit,
+          autoDismissDuration,
           volumeRampEnabled,
           startingVolume: volumeRampEnabled ? startingVolume : undefined,
           volumeRampDuration: volumeRampEnabled ? volumeRampDuration : undefined,
@@ -120,6 +130,7 @@ export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormP
         setSnoozeDuration(5);
         setSnoozeLimitType("unlimited");
         setSnoozeLimitValue(3);
+        setAutoDismissDuration(10);
         setVolumeRampEnabled(false);
         setStartingVolume(20);
         setVolumeRampDuration(30);
@@ -132,7 +143,7 @@ export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormP
         onSuccess();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : (isEditMode ? "Failed to update alarm" : "Failed to create alarm"));
+      setError(err instanceof Error ? err.message : isEditMode ? "Failed to update alarm" : "Failed to create alarm");
     } finally {
       setIsLoading(false);
     }
@@ -198,11 +209,26 @@ export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormP
         />
       </div>
 
+      {/* Auto Dismiss */}
+      <div>
+        <label htmlFor="autoDismissDuration" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Auto Dismiss After (minutes)
+        </label>
+        <input
+          type="number"
+          id="autoDismissDuration"
+          min="1"
+          value={autoDismissDuration}
+          onChange={(e) => setAutoDismissDuration(Math.max(1, parseInt(e.target.value) || 0))}
+          className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder-gray-400 focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-white dark:focus:ring-white/20"
+          disabled={isLoading}
+          required
+        />
+      </div>
+
       {/* Snooze Limit */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Snooze Limit
-        </label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Snooze Limit</label>
         <div className="flex gap-3 mb-3">
           <button
             type="button"
@@ -231,7 +257,10 @@ export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormP
         </div>
         {snoozeLimitType === "custom" && (
           <div className="mt-2">
-            <label htmlFor="snoozeLimitValue" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+            <label
+              htmlFor="snoozeLimitValue"
+              className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1"
+            >
               Max Snooze Count
             </label>
             <input

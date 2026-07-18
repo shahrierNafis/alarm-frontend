@@ -10,13 +10,28 @@ interface AlarmPlayerProps {
 
 export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [snoozeActive, setSnoozeActive] = useState(false);
   const [snoozeRemaining, setSnoozeRemaining] = useState(0);
   const [snoozeCount, setSnoozeCount] = useState(0);
   const [volumeRampActive, setVolumeRampActive] = useState(false);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const snoozeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoDismissTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleDismiss = useCallback(() => {
+    audioPlayer.stopAudio();
+    setIsPlaying(false);
+    setSnoozeActive(false);
+    if (snoozeIntervalRef.current) {
+      clearInterval(snoozeIntervalRef.current);
+    }
+    if (autoDismissTimeoutRef.current) {
+      clearTimeout(autoDismissTimeoutRef.current);
+      autoDismissTimeoutRef.current = null;
+    }
+    // Redirect to home
+    window.location.href = "/";
+  }, []);
 
   // Initialize audio and start playing
   useEffect(() => {
@@ -42,6 +57,16 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
               setVolumeRampActive(false);
             });
           }
+
+          const dismissMinutes = alarm.autoDismissDuration ?? 10;
+          if (dismissMinutes > 0) {
+            autoDismissTimeoutRef.current = setTimeout(
+              () => {
+                handleDismiss();
+              },
+              dismissMinutes * 60 * 1000,
+            );
+          }
         }
       } catch (error) {
         console.error("Failed to initialize audio:", error);
@@ -53,22 +78,15 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
     // Cleanup on unmount
     return () => {
       audioPlayer.stopAudio();
+      if (autoDismissTimeoutRef.current) {
+        clearTimeout(autoDismissTimeoutRef.current);
+      }
     };
-  }, [alarm]);
-
-  const handleDismiss = useCallback(() => {
-    audioPlayer.stopAudio();
-    setIsPlaying(false);
-    setSnoozeActive(false);
-    if (snoozeIntervalRef.current) {
-      clearInterval(snoozeIntervalRef.current);
-    }
-    // Redirect to home
-    window.location.href = "/";
-  }, []);
+  }, [alarm, handleDismiss]);
 
   const snoozeDuration = alarm.snoozeDuration ?? 5;
-  const isSnoozeLimitReached = alarm.snoozeLimit !== null && alarm.snoozeLimit !== undefined && snoozeCount >= alarm.snoozeLimit;
+  const isSnoozeLimitReached =
+    alarm.snoozeLimit !== null && alarm.snoozeLimit !== undefined && snoozeCount >= alarm.snoozeLimit;
 
   const handleSnooze = useCallback(() => {
     if (isSnoozeLimitReached) return;
@@ -81,7 +99,6 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
     });
 
     setSnoozeActive(true);
-    setIsPaused(true);
     setSnoozeRemaining(snoozeDuration * 60 * 1000);
     setSnoozeCount((prev) => prev + 1);
   }, [snoozeDuration, isSnoozeLimitReached]);
@@ -117,14 +134,26 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Snooze duration: <span className="font-semibold text-black dark:text-white">{snoozeDuration} min</span>
           </p>
-          <div className="text-sm mt-1 text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Auto-dismiss after:{" "}
+            <span className="font-semibold text-black dark:text-white">{alarm.autoDismissDuration ?? 10} min</span>
+          </p>
+          <div className="text-sm mt-2 text-gray-500 dark:text-gray-400">
             {alarm.snoozeLimit === null || alarm.snoozeLimit === undefined ? (
-              <p>Snoozed: <span className="font-semibold text-black dark:text-white">{snoozeCount}</span> times (Unlimited)</p>
+              <p>
+                Snoozed: <span className="font-semibold text-black dark:text-white">{snoozeCount}</span> times
+                (Unlimited)
+              </p>
             ) : (
               <div>
-                <p>Snoozed: <span className="font-semibold text-black dark:text-white">{snoozeCount}</span> of <span className="font-semibold text-black dark:text-white">{alarm.snoozeLimit}</span> times</p>
+                <p>
+                  Snoozed: <span className="font-semibold text-black dark:text-white">{snoozeCount}</span> of{" "}
+                  <span className="font-semibold text-black dark:text-white">{alarm.snoozeLimit}</span> times
+                </p>
                 {isSnoozeLimitReached && (
-                  <span className="block text-red-500 font-bold mt-1 text-xs animate-bounce">⚠️ Snooze limit reached!</span>
+                  <span className="block text-red-500 font-bold mt-1 text-xs animate-bounce">
+                    ⚠️ Snooze limit reached!
+                  </span>
                 )}
               </div>
             )}

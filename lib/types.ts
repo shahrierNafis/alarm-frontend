@@ -6,6 +6,7 @@ export interface Alarm {
   soundData?: Blob; // audio file blob
   snoozeDuration: number; // custom snooze duration in minutes
   snoozeLimit: number | null; // maximum times snooze can be triggered (null for unlimited)
+  autoDismissDuration: number; // auto-dismiss after this many minutes
   createdAt: number; // timestamp
   volumeRampEnabled?: boolean; // whether to gradually increase volume
   startingVolume?: number; // starting volume as percentage (0-100)

@@ -10,6 +10,7 @@ interface StoredAlarm {
   soundData?: Blob;
   snoozeDuration: number;
   snoozeLimit: number | null;
+  autoDismissDuration: number;
   createdAt: number;
   volumeRampEnabled?: boolean;
   startingVolume?: number;
@@ -19,15 +20,18 @@ interface StoredAlarm {
 // Helper to migrate legacy alarms containing snoozeOptions
 function migrateAlarm(alarm: any): StoredAlarm {
   if (!alarm) return alarm;
-  if (typeof alarm.snoozeDuration !== "number") {
-    const defaultDuration = (alarm.snoozeOptions && alarm.snoozeOptions[0]) || 5;
-    return {
-      ...alarm,
-      snoozeDuration: defaultDuration,
-      snoozeLimit: alarm.snoozeLimit !== undefined ? alarm.snoozeLimit : null,
-    };
-  }
-  return alarm;
+  // Backfill legacy data and ensure defaults for new fields
+  const migrated = {
+    ...alarm,
+    snoozeDuration:
+      typeof alarm.snoozeDuration === "number"
+        ? alarm.snoozeDuration
+        : (alarm.snoozeOptions && alarm.snoozeOptions[0]) || 5,
+    snoozeLimit: alarm.snoozeLimit !== undefined ? alarm.snoozeLimit : null,
+    autoDismissDuration: typeof alarm.autoDismissDuration === "number" ? alarm.autoDismissDuration : 10,
+  };
+
+  return migrated;
 }
 
 let db: IDBDatabase | null = null;
