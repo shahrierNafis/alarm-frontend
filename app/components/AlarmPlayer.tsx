@@ -33,6 +33,28 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
     window.location.href = "/";
   }, []);
 
+  const clearAutoDismissTimeout = useCallback(() => {
+    if (autoDismissTimeoutRef.current) {
+      clearTimeout(autoDismissTimeoutRef.current);
+      autoDismissTimeoutRef.current = null;
+    }
+  }, []);
+
+  const startAutoDismissTimer = useCallback(
+    (durationMinutes: number) => {
+      clearAutoDismissTimeout();
+      if (durationMinutes > 0) {
+        autoDismissTimeoutRef.current = setTimeout(
+          () => {
+            handleDismiss();
+          },
+          durationMinutes * 60 * 1000,
+        );
+      }
+    },
+    [clearAutoDismissTimeout, handleDismiss],
+  );
+
   // Initialize audio and start playing
   useEffect(() => {
     const initAndPlay = async () => {
@@ -60,12 +82,7 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
 
           const dismissMinutes = alarm.autoDismissDuration ?? 10;
           if (dismissMinutes > 0) {
-            autoDismissTimeoutRef.current = setTimeout(
-              () => {
-                handleDismiss();
-              },
-              dismissMinutes * 60 * 1000,
-            );
+            startAutoDismissTimer(dismissMinutes);
           }
         }
       } catch (error) {
@@ -91,17 +108,25 @@ export default function AlarmPlayer({ alarm }: AlarmPlayerProps) {
   const handleSnooze = useCallback(() => {
     if (isSnoozeLimitReached) return;
 
-    audioPlayer.startSnooze(snoozeDuration, (remaining) => {
-      setSnoozeRemaining(remaining);
-      if (remaining <= 0) {
+    const autoDismissDuration = alarm.autoDismissDuration ?? 10;
+    clearAutoDismissTimeout();
+
+    audioPlayer.startSnooze(
+      snoozeDuration,
+      (remaining) => {
+        setSnoozeRemaining(remaining);
+      },
+      () => {
         setSnoozeActive(false);
-      }
-    });
+        setSnoozeRemaining(0);
+        startAutoDismissTimer(autoDismissDuration);
+      },
+    );
 
     setSnoozeActive(true);
     setSnoozeRemaining(snoozeDuration * 60 * 1000);
     setSnoozeCount((prev) => prev + 1);
-  }, [snoozeDuration, isSnoozeLimitReached]);
+  }, [alarm.autoDismissDuration, clearAutoDismissTimeout, isSnoozeLimitReached, startAutoDismissTimer, snoozeDuration]);
 
   return (
     <div className="w-full flex flex-col items-center justify-center gap-8">
