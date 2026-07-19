@@ -41,7 +41,14 @@ self.addEventListener("fetch", (event) => {
           }
           return networkResponse;
         })
-        .catch(() => caches.match(event.request).then((cachedResponse) => cachedResponse || caches.match(OFFLINE_URL))),
+        .catch(() =>
+          caches
+            .match(event.request)
+            .then(
+              (cachedResponse) =>
+                cachedResponse || caches.match("/").then((shellResponse) => shellResponse || caches.match(OFFLINE_URL)),
+            ),
+        ),
     );
     return;
   }
