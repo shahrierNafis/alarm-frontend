@@ -37,10 +37,10 @@ export default function ConfigurePage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-12 sm:px-6">
-        <div className="grid gap-12 grid-cols-1 lg:grid-cols-2">
+      <main className="flex-1 w-full mx-auto p-4 sm:p-24">
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 w-full">
           {/* Form Section */}
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 dark:bg-gray-800 dark:border-gray-700 grid columns-1 justify-center">
             <h2 className="text-lg font-semibold mb-6 text-gray-900 dark:text-white">
               {editingAlarm ? "✏️ Edit Alarm" : "Create New Alarm"}
             </h2>

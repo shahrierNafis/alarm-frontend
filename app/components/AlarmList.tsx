@@ -50,13 +50,13 @@ export default function AlarmList({ onEditAlarm }: AlarmListProps) {
   }
 
   return (
-    <div className="w-full max-w-2xl space-y-4">
+    <div className="w-full space-y-4">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Your Alarms</h2>
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+      <div className="flex flex-wrap gap-2">
         {alarms.map((alarm) => (
           <div
             key={alarm.id}
-            className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+            className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 grow"
           >
             <h3 className="font-semibold text-gray-900 dark:text-white">{alarm.name}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">

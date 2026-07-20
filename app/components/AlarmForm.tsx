@@ -150,7 +150,7 @@ export default function AlarmForm({ onSuccess, alarm, onEditCancel }: AlarmFormP
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-md space-y-6">
+    <form onSubmit={handleSubmit} className="w-full space-y-6">
       {/* Alarm Name */}
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
